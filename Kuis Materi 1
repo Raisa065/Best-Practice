@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuis Interaktif: Makalah Best Practice Guru</title>
+    <!-- Muat Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Muat Font Poppins dari Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Terapkan font Poppins secara global */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f0f0; /* Latar belakang abu-abu netral */
+        }
+
+        /* Warna Palet */
+        .color-primary { background-color: #fc7448; } /* Orange/Coral - Aksen utama */
+        .color-dark { background-color: #0d4959; }   /* Dark Teal/Navy - Kontras/Teks gelap */
+        .color-danger { background-color: #ff544e; } /* Bright Red - Indikator Salah */
+        .text-primary { color: #fc7448; }
+        .text-dark { color: #0d4959; }
+        .text-danger { color: #ff544e; }
+
+        /* Style tombol jawaban kustom */
+        .answer-button {
+            transition: all 0.2s ease-in-out;
+            border: 2px solid #fc7448; /* Border default menggunakan warna utama */
+            color: #0d4959; /* Teks default menggunakan warna gelap */
+        }
+        .answer-button:hover:not(.disabled) {
+            background-color: #fc7448;
+            color: white; 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(13, 73, 89, 0.1);
+        }
+        
+        /* Style untuk jawaban yang benar */
+        .correct {
+            background-color: #0d4959 !important; /* Dark Teal untuk latar belakang benar */
+            color: white !important;
+            border-color: #0d4959 !important;
+            animation: pulse-correct 0.5s 3;
+        }
+
+        /* Style untuk jawaban yang salah */
+        .incorrect {
+            background-color: #ff544e !important; /* Bright Red untuk latar belakang salah */
+            color: white !important;
+            border-color: #ff544e !important;
+        }
+
+        /* Animasi sederhana untuk jawaban benar */
+        @keyframes pulse-correct {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        /* Modal styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 90%;
+            width: 500px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            animation: modal-open 0.3s forwards;
+        }
+        @keyframes modal-open {
+            to { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="quiz-container" class="w-full max-w-2xl color-dark rounded-2xl shadow-2xl p-6 md:p-10 text-white">
+        
+        <!-- Header Kuis -->
+        <div class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-extrabold mb-1" style="color: #fc7448;">Kuis Best Practice Guru</h1>
+            <p class="text-white opacity-90 text-sm">Uji pemahaman Anda tentang konsep dan landasan hukum Makalah Best Practice.</p>
+        </div>
+
+        <!-- Area Kuis Utama -->
+        <div id="quiz-area" class="bg-white p-6 rounded-xl shadow-lg">
+            
+            <!-- Indikator Pertanyaan & Skor -->
+            <div class="flex justify-between text-sm font-semibold text-dark mb-4">
+                <span id="question-indicator">Pertanyaan 1 dari 5</span>
+                <span id="score-display">Skor: 0</span>
+            </div>
+
+            <!-- Keterangan Jenis Pertanyaan (BARU) -->
+            <div id="type-indicator" class="hidden text-center mb-4 p-3 rounded-xl font-bold text-white shadow-md" style="background-color: #fc7448;">
+                PERNYATAAN BENAR ATAU SALAH
+            </div>
+
+            <!-- Teks Pertanyaan -->
+            <p id="question-text" class="text-xl md:text-xl font-semibold text-dark mb-6">
+                <!-- Teks pertanyaan akan dimuat di sini oleh JS -->
+            </p>
+
+            <!-- Pilihan Jawaban (Multiple Choice/True False) -->
+            <div id="options-container" class="space-y-4">
+                <!-- Tombol jawaban akan dimuat di sini oleh JS -->
+            </div>
+
+            <!-- Tombol Lanjut (Hidden until needed) -->
+            <button id="next-button" class="hidden mt-8 w-full py-3 color-primary text-white font-bold rounded-xl shadow-md disabled:opacity-50" disabled onclick="nextQuestion()">
+                Lanjut
+            </button>
+            
+        </div>
+        
+        <!-- Area Hasil (Tersembunyi) -->
+        <div id="results-area" class="hidden bg-white p-8 rounded-xl shadow-lg text-center text-dark">
+            <h2 class="text-3xl font-bold mb-4 text-dark">Hasil Kuis Anda</h2>
+            <p class="text-5xl font-extrabold mb-6 text-dark">
+                <span id="final-score" style="color: #fc7448;">0</span>/<span id="total-questions">0</span>
+            </p>
+            <p id="result-message" class="text-lg mb-8"></p>
+            <button class="w-1/2 py-3 color-dark text-white font-bold rounded-xl shadow-lg hover:bg-opacity-90 transition-opacity" onclick="resetQuiz()">
+                Mulai Lagi
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL PENJELASAN (POP-UP) -->
+    <div id="explanation-modal" class="modal-overlay hidden">
+        <div class="modal-content text-dark">
+            <h3 id="modal-status" class="text-2xl font-bold mb-3">Jawaban Tepat!</h3>
+            <p class="text-sm font-semibold mb-2 text-dark opacity-80">Penjelasan:</p>
+            <p id="modal-explanation" class="mb-6 text-base leading-relaxed"></p>
+            
+            <button class="w-full py-3 color-primary text-white font-bold rounded-xl shadow-md hover:bg-opacity-90 transition-opacity" onclick="hideExplanationModal()">
+                Lanjut ke Pertanyaan Berikutnya
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Data Kuis dan Penjelasan
+        const quizData = [
+            {
+                question: "Landasan hukum terbaru yang mengubah fokus kenaikan pangkat guru dari sistem Angka Kredit butir kegiatan menjadi Sistem Penilaian Kinerja Terintegrasi adalah...",
+                options: [
+                    "PermenPAN-RB Nomor 16 Tahun 2009",
+                    "Permendiknas Nomor 35 Tahun 2010",
+                    "PermenPAN-RB Nomor 1 Tahun 2023",
+                    "Peraturan Bersama Mendiknas dan Kepala BKN Tahun 2010"
+                ],
+                answer: "PermenPAN-RB Nomor 1 Tahun 2023",
+                explanation: "Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 1 Tahun 2023 menjadi payung hukum untuk semua Jabatan Fungsional (termasuk Guru) yang mengubah fokus kenaikan pangkat menjadi <strong class='text-dark'>sistem penilaian kinerja terintegrasi</strong>, meninggalkan sistem angka kredit lama.",
+                type: "MC"
+            },
+            {
+                question: "Fokus utama Makalah Best Practice adalah pada UJI HIPOTESIS dan TINDAKAN SIKLUS untuk membuktikan efektivitas suatu perlakuan, sama seperti Penelitian Tindakan Kelas (PTK).",
+                options: [
+                    "BENAR",
+                    "SALAH"
+                ],
+                answer: "SALAH",
+                explanation: "<span class='text-danger font-bold'>SALAH.</span> Best Practice berfokus pada <strong class='text-dark'>praktik nyata yang sudah berhasil</strong> dan berorientasi pada penyebarluasan model inovasi. Uji hipotesis dan tindakan siklus adalah ciri khas Penelitian Formal seperti PTK.",
+                type: "TF"
+            },
+            {
+                question: "Pernyataan yang TIDAK termasuk dalam Karakter dan Ciri Utama Best Practice yang solutif adalah...",
+                options: [
+                    "Memberikan dampak yang signifikan dan perubahan ke arah yang lebih baik.",
+                    "Menjadi referensi, model, bahkan inspirasi bagi guru lain.",
+                    "Metodenya harus ekonomis dan efisien dari segi biaya dan waktu.",
+                    "Menggunakan metode yang mahal dan kompleks agar terlihat inovatif."
+                ],
+                answer: "Menggunakan metode yang mahal dan kompleks agar terlihat inovatif.",
+                explanation: "Salah satu ciri utama Best Practice adalah bahwa metode yang digunakan harus <strong class='text-dark'>ekonomis dan efisien</strong> dari segi biaya, waktu, dan sumber daya, sehingga mudah direplikasi dan bersifat lestari.",
+                type: "MC"
+            },
+            {
+                question: "Manakah yang BUKAN merupakan Komponen Inti yang wajib ada dalam Makalah Best Practice?",
+                options: [
+                    "Identifikasi Masalah Nyata di Kelas/Sekolah",
+                    "Hasil dan Dampak yang Diperoleh (bukti kuantitatif/kualitatif)",
+                    "Uji Validitas dan Reliabilitas Instrumen Penelitian",
+                    "Solusi/Inovasi Pembelajaran yang diterapkan"
+                ],
+                answer: "Uji Validitas dan Reliabilitas Instrumen Penelitian",
+                explanation: "<strong class='text-dark'>Uji Validitas dan Reliabilitas Instrumen Penelitian</strong> adalah langkah dalam Penelitian Formal (seperti PTK). Komponen Inti Best Practice berfokus pada praktik: Masalah Nyata, Solusi, Hasil/Dampak, dan Kesimpulan/Saran.",
+                type: "MC"
+            },
+            {
+                question: "Daftar Pustaka (Bibliography) diletakkan di Bagian Isi (Bab 2 atau Bab 3) Makalah Best Practice.",
+                options: [
+                    "BENAR",
+                    "SALAH"
+                ],
+                answer: "SALAH",
+                explanation: "<span class='text-danger font-bold'>SALAH.</span> Daftar Pustaka dan Lampiran diletakkan di <strong class='text-dark'>Bagian Penutup</strong> Makalah Best Practice, setelah Bab 4 (Kesimpulan dan Rekomendasi).",
+                type: "TF"
+            }
+        ];
+
+        // Variabel Status Game
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let answered = false;
+
+        // Elemen DOM
+        const quizArea = document.getElementById('quiz-area');
+        const resultsArea = document.getElementById('results-area');
+        const questionIndicator = document.getElementById('question-indicator');
+        const scoreDisplay = document.getElementById('score-display');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const nextButton = document.getElementById('next-button');
+        const finalScore = document.getElementById('final-score');
+        const totalQuestions = document.getElementById('total-questions');
+        const resultMessage = document.getElementById('result-message');
+        const explanationModal = document.getElementById('explanation-modal');
+        const modalStatus = document.getElementById('modal-status');
+        const modalExplanation = document.getElementById('modal-explanation');
+        const typeIndicator = document.getElementById('type-indicator');
+        
+        // --- Utility Function ---
+
+        // Fungsi untuk menyorot kata-kata yang dikapitalisasi penuh dengan warna kontras (Orange/Coral)
+        function highlightKeywords(text) {
+            // Regex mencari kata-kata yang seluruhnya kapital dan memiliki minimal 4 karakter (misal: BUKAN, TIDAK, PTK)
+            return text.replace(/\b([A-Z]{4,})\b/g, (match) => {
+                return `<span class="text-primary">${match}</span>`;
+            });
+        }
+
+        // --- Fungsi Utama Kuis ---
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= quizData.length) {
+                showResults();
+                return;
+            }
+
+            answered = false;
+            nextButton.classList.add('hidden'); // Sembunyikan tombol Lanjut saat pertanyaan baru
+            optionsContainer.innerHTML = ''; // Kosongkan pilihan lama
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            
+            // 1. Handle Type Indicator (BENAR/SALAH Box)
+            if (currentQuestion.type === 'TF') {
+                typeIndicator.classList.remove('hidden');
+            } else {
+                typeIndicator.classList.add('hidden');
+            }
+
+            // 2. Update Teks Pertanyaan dengan Highlighting
+            questionIndicator.textContent = `Pertanyaan ${currentQuestionIndex + 1} dari ${quizData.length}`;
+            questionText.innerHTML = highlightKeywords(currentQuestion.question);
+            
+            // 3. Buat Tombol Pilihan Jawaban
+            currentQuestion.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                // Gunakan innerHTML untuk mendukung potensi styling dalam opsi (walau di data kuis ini tidak ada)
+                button.className = 'answer-button w-full text-left py-3 px-4 rounded-xl font-medium border-2 bg-white';
+                button.onclick = () => selectAnswer(button, option);
+                optionsContainer.appendChild(button);
+            });
+        }
+
+        function selectAnswer(selectedButton, selectedOption) {
+            if (answered) return; // Mencegah klik ganda
+
+            answered = true;
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            const isCorrect = selectedOption === currentQuestion.answer;
+            
+            // Nonaktifkan semua tombol setelah menjawab
+            Array.from(optionsContainer.children).forEach(button => {
+                button.classList.add('disabled');
+                button.onclick = null; // Hapus event listener
+            });
+
+            // Beri feedback visual dan hitung skor
+            if (isCorrect) {
+                score++;
+                selectedButton.classList.add('correct', 'shadow-lg');
+            } else {
+                selectedButton.classList.add('incorrect', 'shadow-lg');
+                // Tunjukkan jawaban yang benar
+                Array.from(optionsContainer.children).forEach(button => {
+                    if (button.textContent === currentQuestion.answer) {
+                        button.classList.add('correct');
+                    }
+                });
+            }
+
+            // Update skor di UI
+            scoreDisplay.textContent = `Skor: ${score}`;
+            
+            // Tampilkan Modal Penjelasan
+            showExplanationModal(isCorrect, currentQuestion.explanation);
+        }
+        
+        // --- Fungsi Modal ---
+
+        function showExplanationModal(isCorrect, explanation) {
+            if (isCorrect) {
+                modalStatus.textContent = "Jawaban Tepat!";
+                modalStatus.style.color = '#0d4959'; // Dark Teal
+            } else {
+                modalStatus.textContent = "Kurang Tepat, Jangan Menyerah!";
+                modalStatus.style.color = '#ff544e'; // Bright Red
+            }
+
+            // Gunakan innerHTML karena penjelasan mengandung tag <strong> dan <span> untuk styling
+            modalExplanation.innerHTML = explanation;
+            explanationModal.classList.remove('hidden');
+        }
+
+        function hideExplanationModal() {
+            explanationModal.classList.add('hidden');
+            nextQuestion(); // Lanjut ke pertanyaan berikutnya setelah modal ditutup
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        function showResults() {
+            quizArea.classList.add('hidden');
+            resultsArea.classList.remove('hidden');
+
+            const total = quizData.length;
+            finalScore.textContent = score;
+            totalQuestions.textContent = total;
+
+            let message = '';
+            const percentage = (score / total) * 100;
+
+            if (percentage === 100) {
+                message = "Luar Biasa! Anda menguasai materi Best Practice dengan sempurna. Siap untuk menulis!";
+            } else if (percentage >= 80) {
+                message = "Sangat Baik! Pemahaman Anda sangat kuat. Hanya perlu sedikit pemantapan lagi.";
+            } else if (percentage >= 50) {
+                message = "Cukup Baik! Anda memahami dasar-dasarnya. Pelajari kembali bagian Landasan Hukum dan Komponen Inti.";
+            } else {
+                message = "Terus Semangat! Ada beberapa konsep penting yang perlu ditinjau ulang. Baca kembali materi dengan fokus.";
+            }
+            
+            resultMessage.textContent = message;
+        }
+
+        function resetQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            resultsArea.classList.add('hidden');
+            quizArea.classList.remove('hidden');
+            scoreDisplay.textContent = `Skor: 0`;
+            loadQuestion();
+        }
+
+        // Mulai kuis saat halaman dimuat
+        window.onload = loadQuestion;
+    </script>
+</body>
+</html>
