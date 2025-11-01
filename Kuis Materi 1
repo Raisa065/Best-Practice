@@ -129,15 +129,28 @@
         
         <!-- Area Hasil (Tersembunyi) -->
         <div id="results-area" class="hidden bg-white p-8 rounded-xl shadow-lg text-center text-dark">
-            <h2 class="text-3xl font-bold mb-4 text-dark">Hasil Kuis Anda</h2>
-            <p class="text-5xl font-extrabold mb-6 text-dark">
-                <span id="final-score" style="color: #fc7448;">0</span>/<span id="total-questions">0</span>
-            </p>
-            <p id="result-message" class="text-lg mb-8"></p>
-            <button class="w-1/2 py-3 color-dark text-white font-bold rounded-xl shadow-lg hover:bg-opacity-90 transition-opacity" onclick="resetQuiz()">
-                Mulai Lagi
-            </button>
+    <h2 class="text-3xl font-bold mb-4 text-dark">Hasil Kuis Anda</h2>
+    
+    <p class="text-5xl font-extrabold mb-6 text-dark">
+        <span id="final-score" style="color: #fc7448;">0</span>/<span id="total-questions">0</span>
+    </p>
+    <p id="result-message" class="text-lg mb-8"></p>
+
+    <div class="space-y-4 max-w-sm mx-auto mb-8">
+        <p class="font-semibold">Simpan skormu ke Spreadsheet!</p>
+        <div>
+            <label for="input-nama" class="sr-only">Nama Anda</label>
+            <input type="text" id="input-nama" placeholder="Ketik nama Anda di sini..." class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary" style="color: #0d4959;">
         </div>
+        <button id="kirim-button" classs="w-full py-3 color-primary text-white font-bold rounded-xl shadow-md hover:bg-opacity-90 transition-opacity disabled:opacity-50" onclick="kirimHasil()">
+            Kirim Hasil
+        </button>
+        <p id="kirim-status" class="text-sm font-semibold h-4"></p> 
+    </div>
+    <button class="w-1/2 py-3 color-dark text-white font-bold rounded-xl shadow-lg hover:bg-opacity-90 transition-opacity" onclick="resetQuiz()">
+        Mulai Lagi
+    </button>
+</div>
     </div>
 
     <!-- MODAL PENJELASAN (POP-UP) -->
@@ -234,6 +247,36 @@
         const modalStatus = document.getElementById('modal-status');
         const modalExplanation = document.getElementById('modal-explanation');
         const typeIndicator = document.getElementById('type-indicator');
+
+	// --- Utility Function ---
+    
+    /**
+     * Mengirim data hasil kuis ke Google Spreadsheet.
+     * @param {string} namaPemain - Nama user yang diambil dari input.
+     * @param {number} skorPemain - Skor akhir kuis.
+     */
+    function kirimHasilKeSpreadsheet(namaPemain, skorPemain) {
+      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwV3H8qOCiMrPT7sxAWuJ105lF9Jl8lbaj0OqZndhwGhYmvoSyD2S9429_76XfLipfW/exec";
+
+      // 1. Siapkan data yang akan dikirim (sesuai dengan yang ditangkap Apps Script)
+      const dataYangDikirim = {
+        nama: namaPemain,
+        skor: skorPemain
+      };
+
+      // 2. Kirim data menggunakan fetch()
+      // Kita return fetch() agar bisa di-handle .then() di luar
+      return fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'cors', 
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dataYangDikirim)
+      });
+    }
+
+    // --- Fungsi Utama Kuis ---
         
         // --- Utility Function ---
 
@@ -342,6 +385,46 @@
             loadQuestion();
         }
 
+	function kirimHasil() {
+        const tombolKirim = document.getElementById('kirim-button');
+        const inputNama = document.getElementById('input-nama');
+        const statusKirim = document.getElementById('kirim-status');
+        
+        const nama = inputNama.value;
+        // Variabel 'score' sudah ada secara global di skrip Anda
+        
+        if (nama.trim() === "") {
+            statusKirim.textContent = "Nama tidak boleh kosong!";
+            statusKirim.style.color = "#ff544e"; // text-danger
+            return;
+        }
+
+        // Nonaktifkan tombol saat mengirim
+        tombolKirim.disabled = true;
+        tombolKirim.textContent = "Mengirim...";
+        statusKirim.textContent = "";
+
+        kirimHasilKeSpreadsheet(nama, score)
+            .then(response => response.json())
+            .then(data => {
+                if (data.result === "success") {
+                    tombolKirim.textContent = "Berhasil Terkirim!";
+                    statusKirim.textContent = "Data berhasil disimpan.";
+                    statusKirim.style.color = "#0d4959"; // text-dark
+                    inputNama.disabled = true; // Nonaktifkan input setelah berhasil
+                } else {
+                    throw new Error(data.message || "Gagal mengirim data.");
+                }
+            })
+            .catch(error => {
+                console.error("Error saat fetch:", error);
+                tombolKirim.disabled = false; // Aktifkan lagi tombolnya
+                tombolKirim.textContent = "Kirim Hasil";
+                statusKirim.textContent = "Gagal mengirim, coba lagi.";
+                statusKirim.style.color = "#ff544e"; // text-danger
+            });
+    	}
+
         function showResults() {
             quizArea.classList.add('hidden');
             resultsArea.classList.remove('hidden');
@@ -367,16 +450,26 @@
         }
 
         function resetQuiz() {
-            currentQuestionIndex = 0;
-            score = 0;
-            resultsArea.classList.add('hidden');
-            quizArea.classList.remove('hidden');
-            scoreDisplay.textContent = `Skor: 0`;
-            loadQuestion();
-        }
+        currentQuestionIndex = 0;
+        score = 0;
+        resultsArea.classList.add('hidden');
+        quizArea.classList.remove('hidden');
+        scoreDisplay.textContent = `Skor: 0`;
+        
+        // RESET FORM PENGIRIMAN (INI YANG BARU)
+        document.getElementById('input-nama').value = '';
+        document.getElementById('input-nama').disabled = false;
+        document.getElementById('kirim-button').disabled = false;
+        document.getElementById('kirim-button').textContent = 'Kirim Hasil';
+        document.getElementById('kirim-status').textContent = '';
+        // ------------------------------------
+
+        loadQuestion();
+    }
 
         // Mulai kuis saat halaman dimuat
         window.onload = loadQuestion;
     </script>
 </body>
 </html>
+
